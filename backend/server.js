@@ -64,14 +64,14 @@ const corsOptions = {
     ];
 
     // Allow Vercel preview deployments like `https://shivang101-xxxx.vercel.app`
-    const vercelPreviewRegex = /^https:\/\/shivang101-[a-z0-9]+-kamakship18s-projects\.vercel\.app$/;
+    // const vercelPreviewRegex = /^https:\/\/shivang101-[a-z0-9]+-kamakship18s-projects\.vercel\.app$/;
 
-    if (!origin || allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
-      return callback(null, true);
-    } else {
-      console.log('❌ CORS blocked for origin:', origin);
-      return callback(new Error('Not allowed by CORS'));
-    }
+    // if (!origin || allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
+    //   return callback(null, true);
+    // } else {
+    //   console.log('❌ CORS blocked for origin:', origin);
+    //   return callback(new Error('Not allowed by CORS'));
+    // }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
