@@ -21,9 +21,28 @@ dotenv.config();
 
 const app = express();
 const server = createServer(app);
+const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/campuskart';
 
 app.get('/', (req, res) => {
   res.send('Welcome to CampusKart API');
+});
+
+// Test route
+app.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Server is working!', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Socket.IO setup
@@ -38,13 +57,22 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 // 🔐 Session setup
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "supersecurekey123",
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({ mongoUrl: 'mongodb://localhost:27017/campuskart' }),
+    store: MongoStore.create({ mongoUrl: mongoUri }),
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -62,12 +90,21 @@ const allowedOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(',').map(origin => origin.trim())
   : ['http://localhost:5173'];
 
-console.log('CORS allowed origins:', process.env.CLIENT_URL);
+// Add common production origins
+if (process.env.NODE_ENV === 'production') {
+  allowedOrigins.push('https://your-frontend-domain.netlify.app');
+  allowedOrigins.push('https://your-frontend-domain.vercel.app');
+}
+
+console.log('CORS allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
     console.log('CORS request from origin:', origin);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+    
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
@@ -75,7 +112,9 @@ app.use(cors({
       return callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // 🔗 Routes
@@ -88,8 +127,8 @@ app.use("/payment", paymentRoutes);
 app.use("/notifications", notificationRoutes);
 
 // 📦 MongoDB
-mongoose.connect('mongodb://localhost:27017/campuskart')
-  .then(() => console.log("✅ MongoDB connected"))
+mongoose.connect(mongoUri)
+  .then(() => console.log("✅ MongoDB connected to:", mongoUri))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
 // 🚨 Error handling middleware
@@ -184,8 +223,12 @@ io.on('connection', (socket) => {
 
 // 🚀 Start server
 const PORT = process.env.PORT || 5000;
-const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on ${SERVER_URL}`);
+const SERVER_URL = process.env.NODE_ENV === 'production' 
+  ? `https://your-backend-domain.com`
+  : `http://localhost:${PORT}`;
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔌 Socket.IO server ready`);
 });

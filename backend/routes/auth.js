@@ -27,6 +27,9 @@ router.get("/login/failed", (req, res) => {
 });
 
 router.get("/login/success", (req, res) => {
+  console.log("Login success check - Session:", req.session);
+  console.log("Login success check - User:", req.user);
+  
   if (req.user) {
     res.status(200).json({
       success: true,
@@ -34,7 +37,12 @@ router.get("/login/success", (req, res) => {
       user: req.user,
     });
   } else {
-    res.status(403).json({ success: false, message: "Not authorized" });
+    res.status(403).json({ 
+      success: false, 
+      message: "Not authorized",
+      sessionExists: !!req.session,
+      sessionId: req.sessionID
+    });
   }
 });
 

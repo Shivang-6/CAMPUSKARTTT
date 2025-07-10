@@ -3,8 +3,17 @@ import React, { useState } from 'react';
 const ImageGallery = ({ images = [], productName = "Product", compact = false, editable = false }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Ensure we have at least one image
-  const displayImages = images && images.length > 0 ? images : ['https://placehold.co/300x200?text=No+Image'];
+  // Filter out invalid images and ensure we have at least one image
+  const validImages = images.filter(img => {
+    if (!img) return false;
+    if (typeof img !== 'string') return false;
+    if (img.trim() === '') return false;
+    // Check for malformed base64
+    if (img.startsWith('data:') && (img === 'data:;base64,=' || img === 'data:;base64,')) return false;
+    return true;
+  });
+
+  const displayImages = validImages.length > 0 ? validImages : ['https://placehold.co/300x200?text=No+Image'];
 
   const handleThumbnailClick = (index) => {
     setCurrentImageIndex(index);
@@ -22,6 +31,11 @@ const ImageGallery = ({ images = [], productName = "Product", compact = false, e
     );
   };
 
+  const handleImageError = (e) => {
+    console.error('Image failed to load:', e.target.src);
+    e.target.src = 'https://placehold.co/300x200?text=Image+Error';
+  };
+
   // Compact mode for product cards
   if (compact) {
     return (
@@ -31,9 +45,7 @@ const ImageGallery = ({ images = [], productName = "Product", compact = false, e
             src={displayImages[currentImageIndex]}
             alt={`${productName} - Image ${currentImageIndex + 1}`}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              e.target.src = 'https://placehold.co/300x200?text=Image+Not+Available';
-            }}
+            onError={handleImageError}
           />
         </div>
       </div>
@@ -50,9 +62,7 @@ const ImageGallery = ({ images = [], productName = "Product", compact = false, e
             src={displayImages[currentImageIndex]}
             alt={`${productName} - Image ${currentImageIndex + 1}`}
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
-            }}
+            onError={handleImageError}
           />
         </div>
 

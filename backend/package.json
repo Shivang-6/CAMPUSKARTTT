@@ -1,11 +1,15 @@
 {
-  "name": "backend",
+  "name": "campuskart-backend",
   "version": "1.0.0",
   "description": "CampusKart Backend",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [],
   "author": "YourName",

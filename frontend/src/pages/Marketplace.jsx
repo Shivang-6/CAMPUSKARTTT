@@ -45,7 +45,14 @@ const Marketplace = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
+        console.log('Fetching products from:', `${import.meta.env.VITE_API_URL}/products`);
+        
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`, { withCredentials: true });
+        
+        console.log('Products API response:', res.data);
+        
         if (res.data.success) {
           setProducts(res.data.products);
         } else {
@@ -53,7 +60,20 @@ const Marketplace = () => {
         }
       } catch (err) {
         console.error("Error fetching products:", err);
-        setError("Failed to load products. Please try again.");
+        
+        if (err.response) {
+          // Server responded with error status
+          console.error("Server error:", err.response.data);
+          setError(`Server error: ${err.response.data.message || 'Unknown error'}`);
+        } else if (err.request) {
+          // Network error
+          console.error("Network error:", err.request);
+          setError("Cannot connect to server. Please check if the backend is running.");
+        } else {
+          // Other error
+          console.error("Error:", err.message);
+          setError("An unexpected error occurred");
+        }
       } finally {
         setLoading(false);
       }

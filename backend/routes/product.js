@@ -16,25 +16,52 @@ const upload = multer({ storage });
 // GET /products - Get all products (only available ones and approved)
 router.get("/", async (req, res) => {
   try {
+    console.log("Fetching products...");
+    
     const products = await Product.find({ isAvailable: true, quantity: { $gt: 0 } })
       .sort({ createdAt: -1 })
       .populate('seller', 'name displayName googleId email');
     
+    console.log(`Found ${products.length} products`);
+    
     // For each product, get avgRating and reviewCount
     const productsWithRatings = await Promise.all(products.map(async (product) => {
-      const reviews = await Review.find({ product: product._id });
-      const avgRating = reviews.length ? (reviews.reduce((a, b) => a + b.rating, 0) / reviews.length) : null;
-      return {
-        ...product.toObject(),
-        avgRating,
-        reviewCount: reviews.length
-      };
+      try {
+        const reviews = await Review.find({ product: product._id });
+        const avgRating = reviews.length ? (reviews.reduce((a, b) => a + b.rating, 0) / reviews.length) : null;
+        
+        // Ensure imageUrls are properly formatted
+        const productObj = product.toObject();
+        if (productObj.imageUrls) {
+          productObj.imageUrls = productObj.imageUrls.filter(url => url && url.trim() !== '');
+        }
+        if (!productObj.imageUrls || productObj.imageUrls.length === 0) {
+          productObj.imageUrls = ['https://placehold.co/300x200?text=No+Image'];
+        }
+        
+        return {
+          ...productObj,
+          avgRating,
+          reviewCount: reviews.length
+        };
+      } catch (reviewError) {
+        console.error("Error processing product reviews:", reviewError);
+        return {
+          ...product.toObject(),
+          avgRating: null,
+          reviewCount: 0
+        };
+      }
     }));
     
     res.status(200).json({ success: true, products: productsWithRatings });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Failed to fetch products" });
+    console.error("Error fetching products:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch products", 
+      error: err.message 
+    });
   }
 });
 
