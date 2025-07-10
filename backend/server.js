@@ -12,7 +12,6 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import MongoStore from 'connect-mongo';
-
 import authRoutes from './routes/auth.js';
 import './auth/passport.js';
 import notificationRoutes from './routes/notifications.js';
@@ -23,41 +22,11 @@ const app = express();
 const server = createServer(app);
 const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/campuskart';
 
-app.get('/', (req, res) => {
-  res.send('Welcome to CampusKart API');
-});
-
-// Test route
-app.get('/test', (req, res) => {
-  res.json({ 
-    message: 'Server is working!', 
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Health check route
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Socket.IO setup
-const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true
-  }
-});
-
-// 🔧 Middleware setup
+// 🔧 Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Debug middleware
+// 🔍 Debug logger
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   if (req.body && Object.keys(req.body).length > 0) {
@@ -66,7 +35,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 🔐 Session setup
+// 🔐 Sessions
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "supersecurekey123",
@@ -76,47 +45,60 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge: 24 * 60 * 60 * 1000
     },
   })
 );
 
-// 🧠 Passport middlewares
+// 🔑 Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 🌐 CORS setup
-const allowedOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(',').map(origin => origin.trim())
-  : ['http://localhost:5173'];
-
-// Add common production origins
-if (process.env.NODE_ENV === 'production') {
-  allowedOrigins.push('https://shivang101.vercel.app');
-}
-
-console.log('CORS allowed origins:', allowedOrigins);
-
-app.use(cors({
+// 🌐 CORS
+const corsOptions = {
   origin: function (origin, callback) {
-    console.log('CORS request from origin:', origin);
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
+    const allowedOrigins = [
+      'https://shivang101.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ];
+
+    // Allow Vercel preview deployments like `https://shivang101-xxxx.vercel.app`
+    const vercelPreviewRegex = /^https:\/\/shivang101-[a-z0-9]+-kamakship18s-projects\.vercel\.app$/;
+
+    if (!origin || allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
       return callback(null, true);
     } else {
-      console.log('CORS blocked for origin:', origin);
+      console.log('❌ CORS blocked for origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
 
-// 🔗 Routes
+app.use(cors(corsOptions));
+
+// ✅ Routes
+app.get('/', (req, res) => res.send('Welcome to CampusKart API'));
+
+app.get('/test', (req, res) => {
+  res.json({
+    message: 'Server is working!',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
 app.use("/chat", chatRoutes);
@@ -125,26 +107,32 @@ app.use("/transactions", transactionRoutes);
 app.use("/payment", paymentRoutes);
 app.use("/notifications", notificationRoutes);
 
-// 📦 MongoDB
+// 📦 MongoDB connection
 mongoose.connect(mongoUri)
-  .then(() => console.log("✅ MongoDB connected to:", mongoUri))
+  .then(() => console.log("✅ MongoDB connected:", mongoUri))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// 🚨 Error handling middleware
+// 🚨 Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
-    success: false, 
+  res.status(500).json({
+    success: false,
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
 });
 
-// Socket.IO connection handling
+// ⚡ Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: corsOptions.origin,
+    credentials: true
+  }
+});
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // Join a chat room for a specific product
   socket.on('join-chat', (data) => {
     try {
       const roomId = `product-${data.productId}-${data.userId1}-${data.userId2}`;
@@ -156,17 +144,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle new message
   socket.on('send-message', async (data) => {
     try {
       console.log('Received message data:', data);
-      
-      // Validate required fields
       if (!data.senderId || !data.receiverId || !data.productId || !data.content) {
         throw new Error('Missing required message fields');
       }
 
-      // Save message to database
       const Message = mongoose.model('Message');
       const message = new Message({
         sender: data.senderId,
@@ -176,10 +160,8 @@ io.on('connection', (socket) => {
       });
       await message.save();
 
-      // Emit message to all users in the chat room
       const roomId = `product-${data.productId}-${data.senderId}-${data.receiverId}`;
       const altRoomId = `product-${data.productId}-${data.receiverId}-${data.senderId}`;
-      
       const messageData = {
         id: message._id,
         sender: data.senderId,
@@ -199,7 +181,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle typing indicator
   socket.on('typing', (data) => {
     try {
       const roomId = `product-${data.productId}-${data.senderId}-${data.receiverId}`;
@@ -209,23 +190,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle disconnect
   socket.on('disconnect', (reason) => {
     console.log('User disconnected:', socket.id, 'Reason:', reason);
   });
 
-  // Handle errors
   socket.on('error', (error) => {
     console.error('Socket error:', error);
   });
 });
 
-// 🚀 Start server
+// 🚀 Launch
 const PORT = process.env.PORT || 5000;
-const SERVER_URL = process.env.NODE_ENV === 'production' 
-  ? `https://your-backend-domain.com`
-  : `http://localhost:${PORT}`;
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
