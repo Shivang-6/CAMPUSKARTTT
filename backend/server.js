@@ -92,8 +92,7 @@ const allowedOrigins = process.env.CLIENT_URL
 
 // Add common production origins
 if (process.env.NODE_ENV === 'production') {
-  allowedOrigins.push('https://your-frontend-domain.netlify.app');
-  allowedOrigins.push('https://your-frontend-domain.vercel.app');
+  allowedOrigins.push('https://shivang101.vercel.app');
 }
 
 console.log('CORS allowed origins:', allowedOrigins);
