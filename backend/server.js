@@ -35,6 +35,29 @@ app.use((req, res, next) => {
   next();
 });
 
+// 🌐 CORS
+const allowedOrigins = [
+  'https://shivang101.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked for origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+
 // 🔐 Sessions
 app.use(
   session({
@@ -53,32 +76,6 @@ app.use(
 // 🔑 Passport
 app.use(passport.initialize());
 app.use(passport.session());
-
-// 🌐 CORS
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://shivang101.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ];
-
-    // Allow Vercel preview deployments like `https://shivang101-xxxx.vercel.app`
-    // const vercelPreviewRegex = /^https:\/\/shivang101-[a-z0-9]+-kamakship18s-projects\.vercel\.app$/;
-
-    // if (!origin || allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
-    //   return callback(null, true);
-    // } else {
-    //   console.log('❌ CORS blocked for origin:', origin);
-    //   return callback(new Error('Not allowed by CORS'));
-    // }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
 
 // ✅ Routes
 app.get('/', (req, res) => res.send('Welcome to CampusKart API'));
@@ -125,7 +122,14 @@ app.use((err, req, res, next) => {
 // ⚡ Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: corsOptions.origin,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('❌ Socket.IO CORS blocked for origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true
   }
 });
